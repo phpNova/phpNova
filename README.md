@@ -1,0 +1,4 @@
+phpNova
+=======
+
+phpNova is a modern, fully object-oriented PHP framework that successfully merges AJAX and MVC best practices.  The uniquely modular approach enables you to cherry-pick the stuff you want and integrate it into your existing architecture or fully integrate your site into phpNova from the ground-up.  The permissive licensing structure is also intended to make this easy for IP-wary companies.  No other PHP framework is designed to offer this level of flexibility and portability.  Oh, and yes, it is 100% FOSS (free and open source software).  You are in total control of this hot rod.  Enjoy!
