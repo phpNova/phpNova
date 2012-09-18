@@ -19,8 +19,10 @@ class model
 		}
 		
 		$this->ok = TRUE;
-		
 		$this->errors = array();
+		
+		$this->load_config_main();
+		$this->load_config_active_modules();
 		
 		// TODO - Load and instantiate satellite classes.  --Kris
 	}
