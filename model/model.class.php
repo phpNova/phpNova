@@ -18,12 +18,125 @@ class model
 			}
 		}
 		
+		$this->ok = TRUE;
+		
+		$this->errors = array();
+		
 		// TODO - Load and instantiate satellite classes.  --Kris
 	}
 	
 	public function __toString()
 	{
 		return "(PHP Object)";
+	}
+	
+	/* Load and validate the phpNova configuration file.  --Kris */
+	private function load_config_main()
+	{
+		$ini = parse_ini_file( $this->config->ini_main, TRUE );
+		
+		if ( $ini === FALSE )
+		{
+			$this->ok = FALSE;
+			$this->errors[] = "Error loading phpNova configuration file!";
+			
+			return;
+		}
+		
+		/* Required sections and their required entries.  --Kris */
+		$req = array();
+		
+		$req["Main"] = array();
+		$req["Main"][] = "Version";
+		$req["Main"][] = "Base_Path";
+		
+		$req["Module_Origins"] = array();
+		$req["Module_Origins"][] = "phpNova";
+		$req["Module_Origins"][] = "phpTemplates";
+		
+		$req["Module_Paths"] = array();
+		$req["Module_Paths"][] = "phpTemplates";
+		
+		foreach ( $req as $section => $directives )
+		{
+			if ( !isset( $ini[$section] ) )
+			{
+				$this->ok = FALSE;
+				$this->errors[] = "Main INI file missing required section : " . $section;
+			}
+			else
+			{
+				foreach ( $directives as $setting )
+				{
+					if ( !isset( $ini[$section][$setting] ) )
+					{
+						$this->ok = FALSE;
+						$this->errors[] = "Main INI (section '$section') missing required setting : " . $setting;
+					}
+				}
+			}
+		}
+		
+		$this->phpnova_ini = $ini;
+	}
+	
+	/* Load the modules list configuration file and install as needed.  --Kris */
+	private function load_config_active_modules()
+	{
+		/* Don't attempt to load the active modules if our configuration is bad.  --Kris */
+		if ( !isset( $this->phpnova_ini ) || $this->ok == FALSE )
+		{
+			return;
+		}
+		
+		$ini = parse_ini_file( $this->config->ini_modules );
+		
+		if ( $ini === FALSE )
+		{
+			$this->ok = FALSE;
+			$this->errors[] = "Error loading modules list configuration file!";
+			
+			return;
+		}
+		
+		/* Verify that the local paths exist and are accessible.  --Kris */
+		// Note - Writability will only be evaluated on an as-needed basis.
+		if ( !file_exists( $this->phpnova_ini["Main"]["Base_Path"] ) 
+			|| !is_readable( $this->phpnova_ini["Main"]["Base_Path"] ) 
+			|| !is_dir( $this->phpnova_ini["Main"]["Base_Path"] )
+		{
+			$this->ok = FALSE;
+			$this->errors[] = "Main::Base_Path does not exist or is not readable!";
+		}
+		else
+		{
+			foreach ( $ini as $module => $enabled )
+			{
+				if ( $enabled != 1 )
+				{
+					continue;
+				}
+				else if ( !isset( $this->phpnova_ini["Module_Paths"][$module] ) )
+				{
+					$this->ok = FALSE;
+					$this->errors[] = "Unrecognized module : " . $module;
+				}
+				else
+				{
+					$dir = $this->phpnova_ini["Main"]["Base_Path"] . $this->phpnova_ini["Module_Paths"][$module];
+					
+					if ( !file_exists( $dir ) 
+						|| !is_readable( $dir ) 
+						|| !is_dir( $dir ) )
+					{
+						$this->ok = FALSE;
+						$this->errors[] = "Unable to locate module : " . $module;
+					}
+				}
+			}
+		}
+		
+		// TODO - If all sanity checks passed, load the required modules.  --Kris
 	}
 	
 	/* Funnel to Abstraction::timespan().  --Kris */
