@@ -138,7 +138,53 @@ class model
 			}
 		}
 		
-		// TODO - If all sanity checks passed, load the required modules.  --Kris
+		/* If everything's good, load the modules.  --Kris */
+		// Note - Any non-fatal errors from here will populate this->errors but will NOT set this->ok to FALSE.  --Kris
+		if ( $this->ok == TRUE )
+		{
+			$this->modules = array();
+			
+			foreach ( $ini as $module => $enabled )
+			{
+				if ( $enabled == 1 )
+				{
+					$dir = $this->phpnova_ini["Main"]["Base_Path"] . $this->phpnova_ini["Module_Paths"][$module];
+					
+					/* The hooks.ini file will tell us how/where to include this module.  --Kris */
+					if ( file_exists( $dir . "/hooks.ini" ) 
+						&& is_readable( $dir . "/hooks.ini" ) 
+						&& is_file( $dir . "/hooks.ini" ) )
+					{
+						
+					}
+					/* If no hooks.ini present, assume (lowercase: template_name).class.php with (template_name) as class name.  --Kris */
+					else
+					{
+						try
+						{
+							require( $dir . '/' . strtolower( $module ) . ".class.php" );
+						}
+						catch
+						{
+							$this->errors[] = "No hooks.ini found and unable to guess include for module : " . $module;
+							
+							continue;
+						}
+						
+						try
+						{
+							$this->modules[$module] = new $module;
+						}
+						catch
+						{
+							$this->errors[] = "No hooks.ini found and unable to instantiate class for module : " . $module;
+							
+							continue;
+						}
+					}
+				}
+			}
+		}
 	}
 	
 	/* Funnel to Abstraction::timespan().  --Kris */
