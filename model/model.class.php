@@ -331,6 +331,126 @@ class model
 		}
 	}
 	
+	/* Parse instance args string from hooks.ini.  See hooks.sample.ini for syntax.  --Kris */
+	public build_instance_args( $str )
+	{
+		return $this->cast_instance_args( str_replace( '\,', ',', preg_split( '/(?<!\\\\),[ ]*/', $str, NULL, PREG_SPLIT_NO_EMPTY ) ) );
+	}
+	
+	/* Assign typecasts for argument variables.  Use the 'var' type to skip this step for that value entirely.  --Kris */
+	public cast_instance_args( &$args )
+	{
+		foreach ( $args as &$arg )
+		{
+			$pair = explode( ' ', $arg );
+			
+			/* Bulky, but I don't want to be playing around with dynamic typing.  This way we can control what we support and how.  --Kris */
+			switch ( trim( strtolower( $pair[0] ) )
+			{
+				default:
+					$this->errors[] = "Unrecognized type '" . $pair[0] . "'!";
+					break;
+				case "var":
+				case "mixed":
+					break;
+				case "int":
+				case "integer":
+					try
+					{
+						$pair[1] = (int) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "float":
+				case "double":
+				case "real":
+					try
+					{
+						$pair[1] = (float) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "string":
+					try
+					{
+						$pair[1] = (string) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "bool":
+				case "boolean":
+					try
+					{
+						$pair[1] = (bool) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "binary":
+					try
+					{
+						$pair[1] = (binary) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "array":
+					try
+					{
+						$pair[1] = (array) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "object":
+					try
+					{
+						$pair[1] = (object) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "unset":
+					try
+					{
+						$pair[1] = (unset) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+			}
+			
+			$arg = $pair[1];
+		}
+	}
+	
 	/* Funnel to Abstraction::timespan().  --Kris */
 	public function timespan( $seconds, $include_zeroes = FALSE )
 	{
