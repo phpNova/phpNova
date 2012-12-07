@@ -118,6 +118,11 @@ class model
 				{
 					continue;
 				}
+				else if ( strpos( $module, ' ' ) !== FALSE )
+				{
+					$this->ok = FALSE;
+					$this->errors[] = "Invalid module name '$module' : Modules may not contain spaces!";
+				}
 				else if ( !isset( $this->phpnova_ini["Module_Paths"][$module] ) )
 				{
 					$this->ok = FALSE;
@@ -146,7 +151,7 @@ class model
 			
 			foreach ( $ini as $module => $enabled )
 			{
-				$this->modules[$module] = new stdClass();
+				$this->modules[$module] = new stdClass();  // PHP's version of an empty generic object.  --Kris
 				$this->modules[$module]->ok = TRUE;
 				
 				if ( $enabled == 1 )
@@ -209,14 +214,14 @@ class model
 								case "include":
 									if ( include( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value ) === FALSE )
 									{
-										$this->errors[] = "Failed to include '$value' : " . $e->getMessage();
+										$this->errors[] = "Failed to include '$value'!";
 									}
 									
 									break;
 								case "include_once":
 									if ( include_once( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value ) === FALSE )
 									{
-										$this->errors[] = "Failed to include '$value' : " . $e->getMessage();
+										$this->errors[] = "Failed to include '$value'!";
 									}
 									
 									break;
@@ -254,9 +259,46 @@ class model
 								case "include_once":
 									break;
 								case "class_require":
-									// TODO - Look for matching class_args_ModuleName and parse
+								case "class_include":
+									$args = array();
+									$val_sane = str_replace( ' ', '', $value );
+									if ( array_key_exists( "class_args_" . $val_sane, $hooks )
+									{
+										$args = $this->build_instance_args( $hooks["class_args_" . $val_sane] );
+										
+										if ( $args === FALSE )
+										{
+											$this->errors[] = "Args construction failed for $value!";
+											
+											// If it's a require, fail.  --Kris
+											if ( stripos( $cmd, "require" ) !== FALSE )
+											{
+												$this->modules[$module]->ok = FALSE;
+												$this->errors[] = "Failed class_require of : $value";
+												
+												break;
+											}
+										}
+										
+										$args = array();
+									}
 									
+									/* Instantiate the class.  Pass constructor args if applicable.  --Kris */
+									$cl = new ReflectionClass( $val_sane );
+									$this->modules[$module]->$val_sane = $cl->newInstanceArgs( $args );
+									
+									break;
 							}
+						}
+						
+						if ( $this->modules[$module]->ok == FALSE )
+						{
+							if ( isset( $this->modules[$module] ) )
+							{
+								unset( $this->modules[$module] );
+							}
+							
+							break;
 						}
 					}
 					/* If no hooks.ini present, assume (lowercase: template_name).class.php with (template_name) as class name.  --Kris */
@@ -275,7 +317,7 @@ class model
 						
 						try
 						{
-							$this->modules[$module]->main = new $module();
+							$this->modules[$module]->$module = new $module();
 						}
 						catch
 						{
