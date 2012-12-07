@@ -146,6 +146,9 @@ class model
 			
 			foreach ( $ini as $module => $enabled )
 			{
+				$this->modules[$module] = new stdClass();
+				$this->modules[$module]->ok = TRUE;
+				
 				if ( $enabled == 1 )
 				{
 					$dir = $this->phpnova_ini["Main"]["Base_Path"] . $this->phpnova_ini["Module_Paths"][$module];
@@ -155,7 +158,106 @@ class model
 						&& is_readable( $dir . "/hooks.ini" ) 
 						&& is_file( $dir . "/hooks.ini" ) )
 					{
+						$hooks = parse_ini_file( $dir . "/hooks.ini" );
 						
+						if ( $hooks === FALSE )
+						{
+							$this->errors[] = "Parsing failed for '$dir/hooks.ini'!  Module skipped.";
+							
+							continue;
+						}
+						
+						/* First pass, just handle the includes.  This allows non-sequential ordering of directives.  --Kris */
+						foreach ( $hooks as $cmd => $value )
+						{
+							switch( trim( strtolower( $cmd ) ) )
+							{
+								default:
+									if ( strcasecmp( substr( trim( $cmd ), 0, 11 ), "class_args_" ) )
+									{
+										$this->errors[] = "Unrecognized directive '$cmd' in '$dir/hooks.ini'.  Line skipped.";
+									}
+									
+									break;
+								case "class_require":
+								case "class_include":
+									break;
+								case "require":
+									try
+									{
+										require( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value );
+									}
+									catch ( Exception $e )
+									{
+										$this->errors[] = "Failed to require '$value' : " . $e->getMessage();
+										$this->modules[$module]->ok = FALSE;
+									}
+									
+									break;
+								case "require_once":
+									try
+									{
+										require_once( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value );
+									}
+									catch ( Exception $e )
+									{
+										$this->errors[] = "Failed to require '$value' : " . $e->getMessage();
+										$this->modules[$module]->ok = FALSE;
+									}
+									
+									break;
+								case "include":
+									if ( include( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value ) === FALSE )
+									{
+										$this->errors[] = "Failed to include '$value' : " . $e->getMessage();
+									}
+									
+									break;
+								case "include_once":
+									if ( include_once( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value ) === FALSE )
+									{
+										$this->errors[] = "Failed to include '$value' : " . $e->getMessage();
+									}
+									
+									break;
+							}
+							
+							if ( $this->modules[$module]->ok == FALSE )
+							{
+								$this->errors[] = "Fatal error caught at '$cmd = \"$value\"'!  Module '$module' skipped.";
+								
+								break;
+							}
+						}
+						
+						if ( $this->modules[$module]->ok == FALSE )
+						{
+							if ( isset( $this->modules[$module] ) )
+							{
+								unset( $this->modules[$module] );
+							}
+							
+							break;
+						}
+						
+						/* Second pass, handle class instantiations.  --Kris */
+						foreach ( $hooks as $cmd = $value )
+						{
+							switch( trim( strtolower( $cmd ) )
+							{
+								default:
+									// If invalid, error already generated on first pass.  --Kris
+									break;
+								case "require":
+								case "require_once":
+								case "include":
+								case "include_once":
+									break;
+								case "class_require":
+									// TODO - Look for matching class_args_ModuleName and parse
+									
+							}
+						}
 					}
 					/* If no hooks.ini present, assume (lowercase: template_name).class.php with (template_name) as class name.  --Kris */
 					else
@@ -173,7 +275,7 @@ class model
 						
 						try
 						{
-							$this->modules[$module] = new $module;
+							$this->modules[$module]->main = new $module();
 						}
 						catch
 						{
