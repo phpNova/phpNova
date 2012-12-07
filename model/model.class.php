@@ -278,9 +278,9 @@ class model
 												
 												break;
 											}
+											
+											$args = array();
 										}
-										
-										$args = array();
 									}
 									
 									/* Instantiate the class.  Pass constructor args if applicable.  --Kris */
