@@ -359,7 +359,7 @@ class model
 					{
 						$pair[1] = (int) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -372,7 +372,7 @@ class model
 					{
 						$pair[1] = (float) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -383,7 +383,7 @@ class model
 					{
 						$pair[1] = (string) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -395,7 +395,7 @@ class model
 					{
 						$pair[1] = (bool) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -406,7 +406,7 @@ class model
 					{
 						$pair[1] = (binary) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -417,7 +417,7 @@ class model
 					{
 						$pair[1] = (array) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -428,7 +428,7 @@ class model
 					{
 						$pair[1] = (object) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
@@ -439,7 +439,7 @@ class model
 					{
 						$pair[1] = (unset) $pair[1];
 					}
-					catch
+					catch ( Exception $e )
 					{
 						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
 					}
