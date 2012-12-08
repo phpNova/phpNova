@@ -105,7 +105,7 @@ class model
 		// Note - Writability will only be evaluated on an as-needed basis.
 		if ( !file_exists( $this->phpnova_ini["Main"]["Base_Path"] ) 
 			|| !is_readable( $this->phpnova_ini["Main"]["Base_Path"] ) 
-			|| !is_dir( $this->phpnova_ini["Main"]["Base_Path"] )
+			|| !is_dir( $this->phpnova_ini["Main"]["Base_Path"] ) )
 		{
 			$this->ok = FALSE;
 			$this->errors[] = "Main::Base_Path does not exist or is not readable!";
