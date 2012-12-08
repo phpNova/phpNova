@@ -262,7 +262,7 @@ class model
 								case "class_include":
 									$args = array();
 									$val_sane = str_replace( ' ', '', $value );
-									if ( array_key_exists( "class_args_" . $val_sane, $hooks )
+									if ( array_key_exists( "class_args_" . $val_sane, $hooks ) )
 									{
 										$args = $this->build_instance_args( $hooks["class_args_" . $val_sane] );
 										
