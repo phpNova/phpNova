@@ -18,12 +18,437 @@ class model
 			}
 		}
 		
+		$this->ok = TRUE;
+		$this->errors = array();
+		
+		$this->load_config_main();
+		$this->load_config_active_modules();
+		
 		// TODO - Load and instantiate satellite classes.  --Kris
 	}
 	
 	public function __toString()
 	{
 		return "(PHP Object)";
+	}
+	
+	/* Load and validate the phpNova configuration file.  --Kris */
+	private function load_config_main()
+	{
+		$ini = parse_ini_file( $this->config->ini_main, TRUE );
+		
+		if ( $ini === FALSE )
+		{
+			$this->ok = FALSE;
+			$this->errors[] = "Error loading phpNova configuration file!";
+			
+			return;
+		}
+		
+		/* Required sections and their required entries.  --Kris */
+		$req = array();
+		
+		$req["Main"] = array();
+		$req["Main"][] = "Version";
+		$req["Main"][] = "Base_Path";
+		
+		$req["Module_Origins"] = array();
+		$req["Module_Origins"][] = "phpNova";
+		$req["Module_Origins"][] = "phpTemplates";
+		
+		$req["Module_Paths"] = array();
+		$req["Module_Paths"][] = "phpTemplates";
+		
+		foreach ( $req as $section => $directives )
+		{
+			if ( !isset( $ini[$section] ) )
+			{
+				$this->ok = FALSE;
+				$this->errors[] = "Main INI file missing required section : " . $section;
+			}
+			else
+			{
+				foreach ( $directives as $setting )
+				{
+					if ( !isset( $ini[$section][$setting] ) )
+					{
+						$this->ok = FALSE;
+						$this->errors[] = "Main INI (section '$section') missing required setting : " . $setting;
+					}
+				}
+			}
+		}
+		
+		$this->phpnova_ini = $ini;
+	}
+	
+	/* Load the modules list configuration file and install as needed.  --Kris */
+	private function load_config_active_modules()
+	{
+		/* Don't attempt to load the active modules if our configuration is bad.  --Kris */
+		if ( !isset( $this->phpnova_ini ) || $this->ok == FALSE )
+		{
+			return;
+		}
+		
+		$ini = parse_ini_file( $this->config->ini_modules );
+		
+		if ( $ini === FALSE )
+		{
+			$this->ok = FALSE;
+			$this->errors[] = "Error loading modules list configuration file!";
+			
+			return;
+		}
+		
+		/* Verify that the local paths exist and are accessible.  --Kris */
+		// Note - Writability will only be evaluated on an as-needed basis.
+		if ( !file_exists( $this->phpnova_ini["Main"]["Base_Path"] ) 
+			|| !is_readable( $this->phpnova_ini["Main"]["Base_Path"] ) 
+			|| !is_dir( $this->phpnova_ini["Main"]["Base_Path"] )
+		{
+			$this->ok = FALSE;
+			$this->errors[] = "Main::Base_Path does not exist or is not readable!";
+		}
+		else
+		{
+			foreach ( $ini as $module => $enabled )
+			{
+				if ( $enabled != 1 )
+				{
+					continue;
+				}
+				else if ( strpos( $module, ' ' ) !== FALSE )
+				{
+					$this->ok = FALSE;
+					$this->errors[] = "Invalid module name '$module' : Modules may not contain spaces!";
+				}
+				else if ( !isset( $this->phpnova_ini["Module_Paths"][$module] ) )
+				{
+					$this->ok = FALSE;
+					$this->errors[] = "Unrecognized module : " . $module;
+				}
+				else
+				{
+					$dir = $this->phpnova_ini["Main"]["Base_Path"] . $this->phpnova_ini["Module_Paths"][$module];
+					
+					if ( !file_exists( $dir ) 
+						|| !is_readable( $dir ) 
+						|| !is_dir( $dir ) )
+					{
+						$this->ok = FALSE;
+						$this->errors[] = "Unable to locate module : " . $module;
+					}
+				}
+			}
+		}
+		
+		/* If everything's good, load the modules.  --Kris */
+		// Note - Any non-fatal errors from here will populate this->errors but will NOT set this->ok to FALSE.  --Kris
+		if ( $this->ok == TRUE )
+		{
+			$this->modules = array();
+			
+			foreach ( $ini as $module => $enabled )
+			{
+				$this->modules[$module] = new stdClass();  // PHP's version of an empty generic object.  --Kris
+				$this->modules[$module]->ok = TRUE;
+				
+				if ( $enabled == 1 )
+				{
+					$dir = $this->phpnova_ini["Main"]["Base_Path"] . $this->phpnova_ini["Module_Paths"][$module];
+					
+					/* The hooks.ini file will tell us how/where to include this module.  --Kris */
+					if ( file_exists( $dir . "/hooks.ini" ) 
+						&& is_readable( $dir . "/hooks.ini" ) 
+						&& is_file( $dir . "/hooks.ini" ) )
+					{
+						$hooks = parse_ini_file( $dir . "/hooks.ini" );
+						
+						if ( $hooks === FALSE )
+						{
+							$this->errors[] = "Parsing failed for '$dir/hooks.ini'!  Module skipped.";
+							
+							continue;
+						}
+						
+						/* First pass, just handle the includes.  This allows non-sequential ordering of directives.  --Kris */
+						foreach ( $hooks as $cmd => $value )
+						{
+							switch( trim( strtolower( $cmd ) ) )
+							{
+								default:
+									if ( strcasecmp( substr( trim( $cmd ), 0, 11 ), "class_args_" ) )
+									{
+										$this->errors[] = "Unrecognized directive '$cmd' in '$dir/hooks.ini'.  Line skipped.";
+									}
+									
+									break;
+								case "class_require":
+								case "class_include":
+									break;
+								case "require":
+									try
+									{
+										require( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value );
+									}
+									catch ( Exception $e )
+									{
+										$this->errors[] = "Failed to require '$value' : " . $e->getMessage();
+										$this->modules[$module]->ok = FALSE;
+									}
+									
+									break;
+								case "require_once":
+									try
+									{
+										require_once( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value );
+									}
+									catch ( Exception $e )
+									{
+										$this->errors[] = "Failed to require '$value' : " . $e->getMessage();
+										$this->modules[$module]->ok = FALSE;
+									}
+									
+									break;
+								case "include":
+									if ( include( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value ) === FALSE )
+									{
+										$this->errors[] = "Failed to include '$value'!";
+									}
+									
+									break;
+								case "include_once":
+									if ( include_once( ( strcmp( substr( $value, 0, 1 ), '/' ) ? $dir . '/' : NULL ) . $value ) === FALSE )
+									{
+										$this->errors[] = "Failed to include '$value'!";
+									}
+									
+									break;
+							}
+							
+							if ( $this->modules[$module]->ok == FALSE )
+							{
+								$this->errors[] = "Fatal error caught at '$cmd = \"$value\"'!  Module '$module' skipped.";
+								
+								break;
+							}
+						}
+						
+						if ( $this->modules[$module]->ok == FALSE )
+						{
+							if ( isset( $this->modules[$module] ) )
+							{
+								unset( $this->modules[$module] );
+							}
+							
+							break;
+						}
+						
+						/* Second pass, handle class instantiations.  --Kris */
+						foreach ( $hooks as $cmd = $value )
+						{
+							switch( trim( strtolower( $cmd ) )
+							{
+								default:
+									// If invalid, error already generated on first pass.  --Kris
+									break;
+								case "require":
+								case "require_once":
+								case "include":
+								case "include_once":
+									break;
+								case "class_require":
+								case "class_include":
+									$args = array();
+									$val_sane = str_replace( ' ', '', $value );
+									if ( array_key_exists( "class_args_" . $val_sane, $hooks )
+									{
+										$args = $this->build_instance_args( $hooks["class_args_" . $val_sane] );
+										
+										if ( $args === FALSE )
+										{
+											$this->errors[] = "Args construction failed for $value!";
+											
+											// If it's a require, fail.  --Kris
+											if ( stripos( $cmd, "require" ) !== FALSE )
+											{
+												$this->modules[$module]->ok = FALSE;
+												$this->errors[] = "Failed class_require of : $value";
+												
+												break;
+											}
+											
+											$args = array();
+										}
+									}
+									
+									/* Instantiate the class.  Pass constructor args if applicable.  --Kris */
+									$cl = new ReflectionClass( $val_sane );
+									$this->modules[$module]->$val_sane = $cl->newInstanceArgs( $args );
+									
+									break;
+							}
+						}
+						
+						if ( $this->modules[$module]->ok == FALSE )
+						{
+							if ( isset( $this->modules[$module] ) )
+							{
+								unset( $this->modules[$module] );
+							}
+							
+							break;
+						}
+					}
+					/* If no hooks.ini present, assume (lowercase: template_name).class.php with (template_name) as class name.  --Kris */
+					else
+					{
+						try
+						{
+							require( $dir . '/' . strtolower( $module ) . ".class.php" );
+						}
+						catch
+						{
+							$this->errors[] = "No hooks.ini found and unable to guess include for module : " . $module;
+							
+							continue;
+						}
+						
+						try
+						{
+							$this->modules[$module]->$module = new $module();
+						}
+						catch
+						{
+							$this->errors[] = "No hooks.ini found and unable to instantiate class for module : " . $module;
+							
+							continue;
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	/* Parse instance args string from hooks.ini.  See hooks.sample.ini for syntax.  --Kris */
+	public build_instance_args( $str )
+	{
+		return $this->cast_instance_args( str_replace( '\,', ',', preg_split( '/(?<!\\\\),[ ]*/', $str, NULL, PREG_SPLIT_NO_EMPTY ) ) );
+	}
+	
+	/* Assign typecasts for argument variables.  Use the 'var' type to skip this step for that value entirely.  --Kris */
+	public cast_instance_args( &$args )
+	{
+		foreach ( $args as &$arg )
+		{
+			$pair = explode( ' ', $arg );
+			
+			/* Bulky, but I don't want to be playing around with dynamic typing.  This way we can control what we support and how.  --Kris */
+			switch ( trim( strtolower( $pair[0] ) )
+			{
+				default:
+					$this->errors[] = "Unrecognized type '" . $pair[0] . "'!";
+					break;
+				case "var":
+				case "mixed":
+					break;
+				case "int":
+				case "integer":
+					try
+					{
+						$pair[1] = (int) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "float":
+				case "double":
+				case "real":
+					try
+					{
+						$pair[1] = (float) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "string":
+					try
+					{
+						$pair[1] = (string) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "bool":
+				case "boolean":
+					try
+					{
+						$pair[1] = (bool) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "binary":
+					try
+					{
+						$pair[1] = (binary) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "array":
+					try
+					{
+						$pair[1] = (array) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "object":
+					try
+					{
+						$pair[1] = (object) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+				case "unset":
+					try
+					{
+						$pair[1] = (unset) $pair[1];
+					}
+					catch
+					{
+						$this->errors[] = "Unable to cast '" . $pair[1] . "' as " . $pair[0];
+					}
+					
+					break;
+			}
+			
+			$arg = $pair[1];
+		}
 	}
 	
 	/* Funnel to Abstraction::timespan().  --Kris */
