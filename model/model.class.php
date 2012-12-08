@@ -308,7 +308,7 @@ class model
 						{
 							require( $dir . '/' . strtolower( $module ) . ".class.php" );
 						}
-						catch
+						catch ( Exception $e )
 						{
 							$this->errors[] = "No hooks.ini found and unable to guess include for module : " . $module;
 							
@@ -319,7 +319,7 @@ class model
 						{
 							$this->modules[$module]->$module = new $module();
 						}
-						catch
+						catch ( Exception $e )
 						{
 							$this->errors[] = "No hooks.ini found and unable to instantiate class for module : " . $module;
 							
