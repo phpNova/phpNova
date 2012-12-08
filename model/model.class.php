@@ -246,7 +246,7 @@ class model
 						}
 						
 						/* Second pass, handle class instantiations.  --Kris */
-						foreach ( $hooks as $cmd = $value )
+						foreach ( $hooks as $cmd => $value )
 						{
 							switch( trim( strtolower( $cmd ) )
 							{
