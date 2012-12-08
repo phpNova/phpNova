@@ -345,7 +345,7 @@ class model
 			$pair = explode( ' ', $arg );
 			
 			/* Bulky, but I don't want to be playing around with dynamic typing.  This way we can control what we support and how.  --Kris */
-			switch ( trim( strtolower( $pair[0] ) )
+			switch ( trim( strtolower( $pair[0] ) ) )
 			{
 				default:
 					$this->errors[] = "Unrecognized type '" . $pair[0] . "'!";
