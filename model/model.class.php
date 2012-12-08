@@ -332,13 +332,13 @@ class model
 	}
 	
 	/* Parse instance args string from hooks.ini.  See hooks.sample.ini for syntax.  --Kris */
-	public build_instance_args( $str )
+	public function build_instance_args( $str )
 	{
 		return $this->cast_instance_args( str_replace( '\,', ',', preg_split( '/(?<!\\\\),[ ]*/', $str, NULL, PREG_SPLIT_NO_EMPTY ) ) );
 	}
 	
 	/* Assign typecasts for argument variables.  Use the 'var' type to skip this step for that value entirely.  --Kris */
-	public cast_instance_args( &$args )
+	public function cast_instance_args( &$args )
 	{
 		foreach ( $args as &$arg )
 		{
