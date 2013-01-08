@@ -21,6 +21,9 @@ class Config
 	/* Are we running in a production environment?  If TRUE, debug information and non-fatal errors will be suppressed.  --Kris */
 	public $production = FALSE;
 	
+	/* Path to the phpnova.ini file.  --Kris */
+	public $ini_main = "phpnova.ini";
+	
 	/* Number of timer refreshes before timeout is triggered.  --Kris */
 	public $timer_timeout = 60;
 	
@@ -51,7 +54,7 @@ class Config
 	public function __construct( $setup = TRUE )
 	{
 		/* Check for main configuration file.  Not really necessary, but good demo of how to use paths array.  --Kris */
-		$this->paths["ini_phpnova"] = array( "path" => "phpnova.ini", "perms" => array( "R" ), "type" => "file", "create" => FALSE );
+		$this->paths["ini_phpnova"] = array( "path" => $this->ini_main, "perms" => array( "R" ), "type" => "file", "create" => FALSE );
 		
 		/* PHP error reporting.  Comment out to use server defaults.  --Kris */
 		if ( $this->production == TRUE )
